@@ -13,18 +13,35 @@ public class LevelManager : MonoBehaviour
     private bool isGameActive = true;
     private int lastDisplayedTime = -1; // Untuk mengecek perubahan detik
 
-    private void Awake() { Instance = this; }
+    private int baseMoney = 0;
+    private int totalSpawnedItems = 0;
+    private int totalCollectedItems = 0;
 
     public static Action<int> timeUpdate;
+    public static Action OnLevelComplete;
+    public static Action<string> OnGameOver;
+
+    private void Awake() { Instance = this; }
+
+    private void OnEnable()
+    {
+        LevelSpawner.OnItemSpawned += HandleItemsSpawn;
+        HookMainSystem.OnItemClearedFromSea += HandleItemCollected;
+    }
+
+    private void OnDisable()
+    {
+        LevelSpawner.OnItemSpawned -= HandleItemsSpawn;
+        HookMainSystem.OnItemClearedFromSea -= HandleItemCollected;
+    }
 
     private void Start()
     {
         currentTime = timeLimit;
+        baseMoney = GameData.Instance.moneyData; // Simpan uang awal saat level dimulai
         // Ambil target money dari GameData jika kamu menyimpannya secara static
-        // targetMoney = GameData.CurrentTarget; 
+        //targetMoney = GameData.CurrentTarget; 
     }
-
-
 
     private void Update()
     {
@@ -49,10 +66,25 @@ public class LevelManager : MonoBehaviour
         }
     }
 
+    private void HandleItemsSpawn(int totalSpawnedCount)
+    {
+        totalSpawnedItems = totalSpawnedCount;
+        totalCollectedItems = 0; // Reset collected items saat level dimulai
+    }
+
+    private void HandleItemCollected()
+    {
+        totalCollectedItems++;
+        if (totalCollectedItems >= totalSpawnedItems)
+        {
+            CheckWinCondition();
+        }
+    }
+
     public void CheckWinCondition()
     {
         isGameActive = false;
-        if (GameData.moneyData >= targetMoney)
+        if (GameData.Instance.moneyData >= targetMoney)
         {
             WinLevel();
         }
@@ -65,13 +97,22 @@ public class LevelManager : MonoBehaviour
     public void WinLevel()
     {
         Debug.Log("Level Sukses! Masuk ke fase koran/shop.");
+        OnLevelComplete?.Invoke();
         // Pindah ke scene koran atau tampilkan UI menang
     }
 
     public void GameOver(string reason)
     {
         isGameActive = false;
+        ResetMoney(); // Reset uang ke nilai awal saat level dimulai
+        OnGameOver?.Invoke("Gagal membayar biaya hidup harian...");
         Debug.Log("Game Over: " + reason);
         // Tampilkan UI Game Over
     }
+
+    private void ResetMoney() => GameData.Instance.moneyData = baseMoney; // Reset uang ke nilai awal saat level dimulai
+
+    private void UpdateMoney() => GameData.Instance.moneyData = baseMoney; // Update uang ke nilai awal saat level dimulai, bisa dipanggil saat restart level
+
+    public void RestartLevel() => SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex); // Fungsi untuk restart level
 }

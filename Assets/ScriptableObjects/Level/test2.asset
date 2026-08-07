@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 24a680c974cf84947a0c012502fd9be7, type: 3}
+  m_Name: test2
+  m_EditorClassIdentifier: Assembly-CSharp::ArusMerah.Data.LevelDataSO
+  levelNumber: 0
+  targetRevenue: 50
+  timeLimit: 60
+  seaWaterColor: {r: 0, g: 1, b: 1, a: 1}
+  isForcedFailureLevel: 0
+  randomSpawnItems:
+  - itemTypeSO: {fileID: 11400000, guid: 34a98f16c63c388458954ab181b9c6cb, type: 2}
+    minimumSpawnCount: 5
+    maximumSpawnCount: 5
+    minimumSpawnDepthY: 0
+    maximumSpawnDepthY: -4
+  - itemTypeSO: {fileID: 11400000, guid: 3707b6c74d1bf9f4aa3608b10d68ff82, type: 2}
+    minimumSpawnCount: 1
+    maximumSpawnCount: 2
+    minimumSpawnDepthY: -4.4
+    maximumSpawnDepthY: -4.5
