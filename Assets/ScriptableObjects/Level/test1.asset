@@ -19,12 +19,7 @@ MonoBehaviour:
   isForcedFailureLevel: 0
   randomSpawnItems:
   - itemTypeSO: {fileID: 11400000, guid: 34a98f16c63c388458954ab181b9c6cb, type: 2}
-    minimumSpawnCount: 10
-    maximumSpawnCount: 10
+    minimumSpawnCount: 4
+    maximumSpawnCount: 4
     minimumSpawnDepthY: 0
     maximumSpawnDepthY: -4
-  - itemTypeSO: {fileID: 11400000, guid: 3707b6c74d1bf9f4aa3608b10d68ff82, type: 2}
-    minimumSpawnCount: 0
-    maximumSpawnCount: 0
-    minimumSpawnDepthY: -4.4
-    maximumSpawnDepthY: -4.5

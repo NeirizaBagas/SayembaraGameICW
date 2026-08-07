@@ -20,6 +20,7 @@ public class LevelManager : MonoBehaviour
     public static Action<int> timeUpdate;
     public static Action OnLevelComplete;
     public static Action<string> OnGameOver;
+    public static Action<bool> OnGameCompleted;
 
     private void Awake() { Instance = this; }
 
@@ -103,7 +104,6 @@ public class LevelManager : MonoBehaviour
 
     public void GameOver(string reason)
     {
-        isGameActive = false;
         ResetMoney(); // Reset uang ke nilai awal saat level dimulai
         OnGameOver?.Invoke("Gagal membayar biaya hidup harian...");
         Debug.Log("Game Over: " + reason);

@@ -96,6 +96,12 @@ public class HookMainSystem : MonoBehaviour
     private void toggleHook(bool state)
     {
         isActive = !state;
+
+        if (isActive)
+        {
+            ropeLineRenderer.enabled = true;
+        }
+        else ropeLineRenderer.enabled = false;
     }
 
     private void FireHook(InputAction.CallbackContext context)
@@ -141,8 +147,8 @@ public class HookMainSystem : MonoBehaviour
     {
         if (ropeLineRenderer != null && boatObjTransform != null)
         {
-            ropeLineRenderer.SetPosition(0, new Vector3 (boatObjTransform.position.x, boatObjTransform.position.y, -11));
-            ropeLineRenderer.SetPosition(1, new Vector3(hookGameObject.transform.position.x, hookGameObject.transform.position.y, -11));
+            ropeLineRenderer.SetPosition(0, boatObjTransform.position);
+            ropeLineRenderer.SetPosition(1, hookGameObject.transform.position);
         }
 
     }
@@ -219,5 +225,10 @@ public class HookMainSystem : MonoBehaviour
             isLaunching = false;
             isRetracting = true;
         }
+    }
+
+    private void HandleLevelEnded(bool isGameCompleted)
+    {
+        isActive = false; // Nonaktifkan hook saat level selesai
     }
 }
