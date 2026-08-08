@@ -1,8 +1,10 @@
 using ArusMerah.Gameplay;
+using ArusMerah.Data;
 using ArusMerah.Interface;
 using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using ArusMerah.Managers;
 
 public class HookMainSystem : MonoBehaviour
 {
@@ -46,12 +48,12 @@ public class HookMainSystem : MonoBehaviour
     {
         inputSystem = new InputSystem();
         isActive = true; // Pastikan hook aktif saat game dimulai
+        ropeLineRenderer = hookGameObject.GetComponent<LineRenderer>();
     }
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
-        ropeLineRenderer = hookGameObject.GetComponent<LineRenderer>();
         startPos = hookGameObject.transform.position;
         clawRotateSystem = GetComponent<ClawRotateSystem>();
 
@@ -65,14 +67,14 @@ public class HookMainSystem : MonoBehaviour
     {
         inputSystem.Player.Enable();
         inputSystem.Player.Attack.started += FireHook;
-        UIManager.OnGamePause += toggleHook;
+        FlowManager.OnGameplayState += toggleHook;
     }
 
     private void OnDisable()
     {
         inputSystem?.Player.Disable();
         inputSystem.Player.Attack.started -= FireHook;
-        UIManager.OnGamePause -= toggleHook;
+        FlowManager.OnGameplayState -= toggleHook;
     }
 
     // Update is called once per frame
@@ -95,7 +97,7 @@ public class HookMainSystem : MonoBehaviour
 
     private void toggleHook(bool state)
     {
-        isActive = !state;
+        isActive = state;
 
         if (isActive)
         {

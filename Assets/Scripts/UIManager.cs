@@ -3,26 +3,31 @@ using System.Collections;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using ArusMerah.Data;
+using ArusMerah.Managers;
 
 public class UIManager : MonoBehaviour
 {
+    public static UIManager Instance { get; private set; }
+
     [Header("GamePlay Reference")]
     [SerializeField] private TextMeshProUGUI moneyText;
     [SerializeField] private TextMeshProUGUI timeLimitText;
     [SerializeField] private Slider hookDurabilitySlider;
 
-    [Header("UI Panels")]
-    [SerializeField] private GameObject[] uiElements;
-    [SerializeField] private GameObject gameOverContainer;
-    [SerializeField] private GameObject levelCompleteContainer;
-
     [Header("UI Containers")]
     public CanvasGroup mainGameGroup;
     public CanvasGroup shopGroup;
-    private bool isShopOpen = false;
+    public CanvasGroup resultGroup;
+    public CanvasGroup cutsceneGroup;
+    public CanvasGroup endingChoiceGroup;
 
-    [Header("Transition Settings")]
-    public float fadeDuration = 0.5f;
+    [Header("=== Panel Result UI Reference ===")]
+    [SerializeField] private TextMeshProUGUI resultGrossEarningsText;
+    [SerializeField] private TextMeshProUGUI resultTargetQuotaText;
+    [SerializeField] private TextMeshProUGUI resultNetProfitText;
+    [SerializeField] private Button nextLevelShopButton;
+    [SerializeField] private Button retryLevelButton;
 
     [Header("Shop UI Reference")]
     [SerializeField] private TextMeshProUGUI shopMoneyText;
@@ -31,22 +36,30 @@ public class UIManager : MonoBehaviour
     [SerializeField] private TextMeshProUGUI maxDurabilityPriceText;
     [SerializeField] private TextMeshProUGUI repairPriceText;
 
-    private GameObject currentActiveUI;
+    [Header("Transition Settings")]
+    public float fadeDuration = 0.5f;
 
-    public static Action<bool> OnGamePause;
+    private bool isShopOpen = false;
+
+    private void Awake()
+    {
+        if (Instance != null && Instance != this) Destroy(gameObject);
+        else Instance = this;
+    }
 
     private void OnEnable()
     {
         HookMainSystem.OnFishSell += UpdateMoneyUI;
         HookMainSystem.OnHookDurabilityChanged += UpdateDurabilityUI;
         LevelManager.timeUpdate += UpdateTimeLimit;
-        LevelManager.OnGameOver += OpenGameOverUI;
-        LevelManager.OnLevelComplete += OpenLevelCompleteUI;
+
         UpgradeManager.OnUpgradePurchased += UpdateMoneyUI; // Pastikan UI juga update saat upgrade dibeli
         UpgradeManager.OnLaunchSpeedPriceUpgraded += UpdateLaunchPrice;
         UpgradeManager.OnRetrackSpeedPriceUpgraded += UpdateRetrackPrice;
         UpgradeManager.OnMaxDurabilityPriceUpgrade += UpdateMaxDurabilityPrice;
         UpgradeManager.OnRepairPriceUpgraded += UpdateRepairPrice;
+
+        FlowManager.OnFlowStateChanged += HandleFlowStateChanged;
     }
 
     private void OnDisable()
@@ -54,13 +67,14 @@ public class UIManager : MonoBehaviour
         HookMainSystem.OnFishSell -= UpdateMoneyUI;
         HookMainSystem.OnHookDurabilityChanged -= UpdateDurabilityUI;
         LevelManager.timeUpdate -= UpdateTimeLimit;
-        LevelManager.OnGameOver -= OpenGameOverUI;
-        LevelManager.OnLevelComplete -= OpenLevelCompleteUI;
+
         UpgradeManager.OnUpgradePurchased -= UpdateMoneyUI;
         UpgradeManager.OnLaunchSpeedPriceUpgraded -= UpdateLaunchPrice;
         UpgradeManager.OnRetrackSpeedPriceUpgraded -= UpdateRetrackPrice;
         UpgradeManager.OnMaxDurabilityPriceUpgrade -= UpdateMaxDurabilityPrice;
         UpgradeManager.OnRepairPriceUpgraded -= UpdateRepairPrice;
+
+        FlowManager.OnFlowStateChanged -= HandleFlowStateChanged;
     }
 
     private void Start()
@@ -68,121 +82,182 @@ public class UIManager : MonoBehaviour
         // Kondisi awal: Main Game tampil, Shop sembunyi
         SetCanvasState(mainGameGroup, true);
         SetCanvasState(shopGroup, false);
+        SetCanvasState(resultGroup, false);
+        SetCanvasState(cutsceneGroup, false);
+        SetCanvasState(endingChoiceGroup, false);
 
         UpdateMoneyUI();
-        CloseAllUI();
     }
+
+    private void HandleFlowStateChanged(GameFlowState newFlowState)
+    {
+        switch (newFlowState)
+        {
+            case GameFlowState.GameplayState:
+                isShopOpen = false;
+                StartCoroutine(TransitionCanvas(currentActiveCanvas(), mainGameGroup));
+                UpdateMoneyUI();
+                break;
+            case GameFlowState.ResultState:
+                UpdateResultPanelDisplay();
+                if (resultGroup != null)
+                {
+                    StartCoroutine(TransitionCanvas(currentActiveCanvas(), resultGroup));
+                }
+                break;
+            case GameFlowState.ShopState:
+                isShopOpen = true;
+                UpdateShopMoneyUI();
+                StartCoroutine(TransitionCanvas(currentActiveCanvas(), shopGroup));
+                break;
+        }
+    }
+
+    private CanvasGroup currentActiveCanvas()
+    {
+        if (shopGroup != null && shopGroup.alpha > 0.5f) return shopGroup;
+        if (resultGroup != null && resultGroup.alpha > 0.5f) return resultGroup;
+        if (cutsceneGroup != null && cutsceneGroup.alpha > 0.5f) return cutsceneGroup;
+        if (endingChoiceGroup != null && endingChoiceGroup.alpha > 0.5f) return endingChoiceGroup;
+        return mainGameGroup;
+    }
+
     #region UI MainGame
     public void UpdateDurabilityUI(float ratio) // Update Slider Durability Hook
     {
-        hookDurabilitySlider.value = ratio;
+        if (hookDurabilitySlider != null)
+            hookDurabilitySlider.value = ratio;
     }
 
     public void UpdateTimeLimit(int timeLeft) // Update Text Time Limit
     {
-        timeLimitText.text = timeLeft.ToString();
+        if (timeLimitText != null)
+            timeLimitText.text = timeLeft.ToString();
     }
 
     public void UpdateMoneyUI() // Update Text Money, dengan target yang diambil langsung dari LevelManager
     {
         // Langsung ambil dari LevelManager untuk targetnya
-        int target = LevelManager.Instance.targetMoney;
-        moneyText.text = $"Money: {GameData.Instance.moneyData} / {target}";
+        int target = (LevelManager.Instance != null) ? LevelManager.Instance.revenueToAchieve : 0 ;
+        int grossMoney = (GameData.Instance != null) ? GameData.Instance.grossEarningsToday : 0;
 
-        // Efek visual: Kalau target tercapai, ganti warna teks jadi hijau
-        if (GameData.Instance.moneyData >= target)
+        if (moneyText != null)
         {
-            moneyText.color = Color.green;
-        }
-
-        if (isShopOpen)
-        {
-            shopMoneyText.text = $"Money: {GameData.Instance.moneyData}";
-        }
-    }
-
-    public void OpenUi(GameObject uiToOpen) // Fungsi umum untuk membuka UI, akan menutup UI lain yang sedang aktif
-    {
-        if (currentActiveUI == uiToOpen && uiToOpen.activeSelf) return;
-
-        if (currentActiveUI != null) currentActiveUI.SetActive(false);
-
-        if (uiToOpen != null)
-        {
-            uiToOpen.SetActive(true);
-            currentActiveUI = uiToOpen;
-            Debug.Log("Opening UI: " + uiToOpen.name);
-        }
-    }
-
-    public void CloseCurrentUI() // Fungsi untuk menutup UI yang sedang aktif
-    {
-        if (currentActiveUI != null)
-        {
-            currentActiveUI.SetActive(false);
-            currentActiveUI = null;
-            Debug.Log("Closing Current UI");
-        }
-    }
-
-    private void CloseAllUI() // Fungsi untuk menutup semua UI, bisa dipanggil saat memulai level atau saat kondisi tertentu
-    {
-        foreach (GameObject ui in uiElements)
-        {
-            if (ui != null && ui.activeSelf)
+            moneyText.text = $"Hasil Melaut: ${grossMoney} / ${target}";
+            // Efek Visual: Jika uang kotor sudah mencapai/melebihi target quota, teks berubah hijau
+            if (target > 0 && grossMoney >= target)
             {
-                ui.SetActive(false);
+                moneyText.color = Color.green;
+            }
+            else
+            {
+                moneyText.color = Color.white;
             }
         }
-        currentActiveUI = null;
     }
+    #endregion
 
-    private void OpenGameOverUI(string reason) // Fungsi untuk membuka UI Game Over, dengan alasan yang ditampilkan
+    #region Panel Result UI
+    public void UpdateResultPanelDisplay()
     {
-        OnGamePause?.Invoke(true); 
-        OpenUi(gameOverContainer);
-        TextMeshProUGUI reasonText = gameOverContainer.GetComponentInChildren<TextMeshProUGUI>();
-        if (reasonText != null)
+        int grossMoney = (GameData.Instance != null) ? GameData.Instance.grossEarningsToday : 0;
+        int targetQuota = (LevelManager.Instance != null) ? LevelManager.Instance.revenueToAchieve : 0;
+        bool isPassed = (grossMoney >= targetQuota);
+        if (resultGrossEarningsText != null)
+            resultGrossEarningsText.text = grossMoney.ToString();
+        if (resultTargetQuotaText != null)
+            resultTargetQuotaText.text = targetQuota.ToString();
+        if (isPassed)
         {
-            reasonText.text = "Game Over: " + reason;
+            int netProfit = grossMoney - targetQuota;
+            if (resultNetProfitText != null)
+            {
+                resultNetProfitText.text = netProfit.ToString();
+                resultNetProfitText.color = Color.green;
+            }
+            // LULUS: Tombol Next Level ke Shop AKTIF, Tombol Retry SEMBUNYI
+            if (nextLevelShopButton != null)
+            {
+                nextLevelShopButton.interactable = true;
+            }
+            if (retryLevelButton != null)
+            {
+                retryLevelButton.interactable = false;
+            }
+        }
+        else
+        {
+            int deficit = targetQuota - grossMoney;
+            if (resultNetProfitText != null)
+            {
+                resultNetProfitText.text = deficit.ToString();
+                resultNetProfitText.color = Color.red;
+            }
+            // GAGAL: Tombol Next Level ke Shop MATI, Tombol Retry AKTIF
+            if (nextLevelShopButton != null)
+            {
+                nextLevelShopButton.interactable = false;
+            }
+            if (retryLevelButton != null)
+            {
+                retryLevelButton.interactable = true;
+            }
         }
     }
 
-    private void OpenLevelCompleteUI()
+    // Dipanggil saat pemain klik tombol "Lanjut ke Shop" di Panel Result
+    public void OnClickNextLevelShopButton()
     {
-        OnGamePause?.Invoke(true);
-        OpenUi(levelCompleteContainer); // Fungsi untuk membuka UI Level Complete
+        if (FlowManager.instance != null)
+        {
+            FlowManager.instance.ProceedFromResultToShop();
+        }
+    }
+    // Dipanggil saat pemain klik tombol "Ulangi Hari Ini (Retry)" di Panel Result
+    public void OnClickRetryButton()
+    {
+        if (FlowManager.instance != null)
+        {
+            FlowManager.instance.RetryCurrentLevel();
+        }
     }
     #endregion
 
     #region UI Shop
-    // Panggil fungsi ini di onClick Button "Buka Shop"
+    public void UpdateShopMoneyUI()
+    {
+        if (shopMoneyText != null && GameData.Instance != null)
+        {
+            shopMoneyText.text = $"Uang Bersih Dompet: ${GameData.Instance.walletBalance}";
+        }
+    }
+    private void UpdateLaunchPrice(int price) => launchSpeedPriceText.text = $"${price}";
+    private void UpdateRetrackPrice(int price) => retrackSpeedPriceText.text = $"${price}";
+    private void UpdateMaxDurabilityPrice(int price) => maxDurabilityPriceText.text = $"${price}";
+    private void UpdateRepairPrice(int price) => repairPriceText.text = $"${price}";
+
+    // Dipanggil saat pemain klik "Hari Berikutnya / Keluar Toko"
+    public void OnClickNextDayShopButton()
+    {
+        if (FlowManager.instance != null)
+        {
+            FlowManager.instance.ProceedToNextLevelFromShop();
+        }
+    }
     public void OpenShop()
     {
         StartCoroutine(TransitionCanvas(mainGameGroup, shopGroup));
         isShopOpen = true;
-        UpdateMoneyUI(); // Pastikan text money di shop selalu update saat dibuka
+        UpdateShopMoneyUI();
     }
-
-    private void UpdatePriceUpgradeItem()
-    {
-
-    }
-
-    private void UpdateLaunchPrice(int price) => launchSpeedPriceText.text = price.ToString();
-
-    private void UpdateRetrackPrice(int price) => retrackSpeedPriceText.text = price.ToString();
-
-    private void UpdateMaxDurabilityPrice(int price) => maxDurabilityPriceText.text = price.ToString();
-
-    private void UpdateRepairPrice(int price) => repairPriceText.text = price.ToString();
-
-    // Panggil fungsi ini di onClick Button "Kembali" atau "Tutup Shop"
     public void CloseShop()
     {
         StartCoroutine(TransitionCanvas(shopGroup, mainGameGroup));
+        isShopOpen = false;
     }
+    #endregion
 
+    #region Helper Canvas Crossfade Transition
     private IEnumerator TransitionCanvas(CanvasGroup canvasOut, CanvasGroup canvasIn)
     {
         // 1. Matikan interaksi layar yang lama seketika agar tidak ter-klik dua kali

@@ -14,8 +14,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ArusMerah.Data.LevelDataSO
   levelNumber: 0
   targetRevenue: 50
-  timeLimit: 60
+  timeLimit: 10
   seaWaterColor: {r: 0, g: 1, b: 1, a: 1}
+  introCutSceneData: {fileID: 0}
+  postShopCutSceneData: {fileID: 0}
   isForcedFailureLevel: 0
   randomSpawnItems:
   - itemTypeSO: {fileID: 11400000, guid: 34a98f16c63c388458954ab181b9c6cb, type: 2}

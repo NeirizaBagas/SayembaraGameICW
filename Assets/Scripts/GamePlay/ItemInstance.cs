@@ -63,7 +63,7 @@ namespace ArusMerah.Gameplay
                 // Tambahkan nilai jual item ke total uang di GameData
                 if (GameData.Instance != null)
                 {
-                    GameData.Instance.AddMoney((int)ItemTypeData.monetaryValue);
+                    GameData.Instance.AddGrossEarnings((int)ItemTypeData.monetaryValue);
                 }
 
                 // Tampilkan log monolog nelayan jika ini adalah barang bukti korupsi
