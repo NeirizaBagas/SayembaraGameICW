@@ -13,6 +13,7 @@ public class LevelSpawner : MonoBehaviour
 
     [Header("Private Value")]
     private int objekToSpawn;
+    private LevelManager levelManager;
 
     private List<GameObject> currentlyActiveSpawnedItemsList = new List<GameObject>();
 
@@ -23,6 +24,18 @@ public class LevelSpawner : MonoBehaviour
     {
         if (Instance != null && Instance != this) Destroy(gameObject);
         else Instance = this;
+
+        levelManager = GetComponent<LevelManager>();
+    }
+
+    private void OnEnable()
+    {
+        FlowManager.OnLevelDataLoaded += SpawnObjectsForLevel;
+    }
+
+    private void OnDisable()
+    {
+        FlowManager.OnLevelDataLoaded -= SpawnObjectsForLevel;
     }
 
     // Memuat dan memunculkan seluruh objek di laut berdasarkan LevelDataSO
@@ -37,10 +50,19 @@ public class LevelSpawner : MonoBehaviour
         {
             if (randomSpawn.itemTypeSO != null)
             {
+
                 int randomSpawnCount = UnityEngine.Random.Range(randomSpawn.minimumSpawnCount, randomSpawn.maximumSpawnCount + 1);
+                Debug.Log($"Spawning {randomSpawnCount} of {randomSpawn.itemTypeSO.itemDisplayName} for Level {currentLevelDataSO.levelNumber}");
 
                 for (int i = 0; i < randomSpawnCount; i++)
                 {
+                    objekToSpawn++;
+
+                    if (objekToSpawn == randomSpawnCount)
+                    {
+                        LevelManager.Instance.HandleItemsSpawn(objekToSpawn);
+                    }
+
                     Vector3 randomSpawnPosition = GenerateRandomWorldPosition(randomSpawn.minimumSpawnDepthY, randomSpawn.maximumSpawnDepthY);
 
                     SpawnSingleItemFromPool(randomSpawn.itemTypeSO, randomSpawnPosition);
@@ -64,12 +86,6 @@ public class LevelSpawner : MonoBehaviour
         {
             spawnedObject.transform.SetParent(spawnedItemParentContainer);
             currentlyActiveSpawnedItemsList.Add(spawnedObject);
-            objekToSpawn++;
-
-            if (objekToSpawn == currentlyActiveSpawnedItemsList.Count)
-            {
-                OnItemSpawned?.Invoke(objekToSpawn);
-            }
 
             // Inisialisasi Data Item
             if (spawnedObject.TryGetComponent<ItemInstance>(out var itemInstance))

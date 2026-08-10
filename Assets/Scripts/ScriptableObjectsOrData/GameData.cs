@@ -1,3 +1,5 @@
+using ArusMerah.Managers;
+using System;
 using System.Runtime.CompilerServices;
 using UnityEngine;
 
@@ -23,6 +25,8 @@ namespace ArusMerah.Data
         private float baseRetrackSpeed = 5f;
         private float baseMaxHookDurability = 100f;
 
+        public static Action<int> OnUpdatedGrossEarnings;
+
         private void Awake()
         {
             if (Instance != null && Instance != this)
@@ -35,6 +39,24 @@ namespace ArusMerah.Data
             DontDestroyOnLoad(gameObject); // Agar tetap ada saat ganti scene
         }
 
+        private void OnEnable()
+        {
+            HookMainSystem.OnHookDurabilityChanged += ApplyDurabilityDamage; // Subscribe ke event HookMainSystem
+            LevelManager.OnGameCompleted += HandleGrossRevenue; // Subscribe ke event LevelManager
+            FlowManager.OnLevelInitiated += RecordStartOfDaySnapshot; // Subscribe ke event FlowManager untuk mencatat snapshot awal hari
+            FlowManager.OnRestartGame += RollbackMoneyToStartOfDay; // Subscribe ke event FlowManager untuk rollback saat Retry
+            LevelManager.OnTargetAchieved += ApplyQuotaDeductionAndSaveProfit; // Subscribe ke event LevelManager untuk menambahkan profit bersih ke dompet
+        }
+
+        private void OnDisable()
+        {
+            HookMainSystem.OnHookDurabilityChanged -= ApplyDurabilityDamage; // Unsubscribe dari event
+            LevelManager.OnGameCompleted -= HandleGrossRevenue; // Unsubscribe dari event
+            FlowManager.OnLevelInitiated -= RecordStartOfDaySnapshot; // Unsubscribe dari event
+            FlowManager.OnRestartGame -= RollbackMoneyToStartOfDay; // Unsubscribe dari event
+            LevelManager.OnTargetAchieved -= ApplyQuotaDeductionAndSaveProfit; // Unsubscribe dari event
+        }
+
         // Start is called once before the first execution of Update after the MonoBehaviour is created
         void Start()
         {
@@ -44,7 +66,6 @@ namespace ArusMerah.Data
             currentDurability = upgradeAbleMaxHookDurability;
 
             // Inisialisasi keuangan awal
-            //walletBalance = 0;
             grossEarningsToday = 0;
             walletSnapshotAtStart = 0;
         }
@@ -55,6 +76,7 @@ namespace ArusMerah.Data
         {
             walletSnapshotAtStart = walletBalance;
             grossEarningsToday = 0;
+            OnUpdatedGrossEarnings?.Invoke(grossEarningsToday); // Trigger event untuk update UI
             Debug.Log($"[GameData]: Snapshot Awal Hari Dicatat. Saldo Dompet: ${walletBalance}");
         }
 
@@ -63,7 +85,13 @@ namespace ArusMerah.Data
         public void AddGrossEarnings(int amountToAdd) 
         {
             grossEarningsToday += amountToAdd;
+            OnUpdatedGrossEarnings?.Invoke(grossEarningsToday); // Trigger event untuk update UI
             Debug.Log($"[GameData]: Uang bertambah ${amountToAdd}. Total Uang Sekarang: ${grossEarningsToday}");
+        }
+
+        public void HandleGrossRevenue()
+        {
+            OnUpdatedGrossEarnings?.Invoke(grossEarningsToday);
         }
 
         // Dipanggil oleh Panel Result jika pemain LULUS quota (grossEarningsToday >= targetRevenue).
@@ -81,6 +109,7 @@ namespace ArusMerah.Data
         {
             walletBalance = walletSnapshotAtStart;
             grossEarningsToday = 0; // Reset uang kotor hari ini
+            OnUpdatedGrossEarnings?.Invoke(grossEarningsToday); // Trigger event untuk update UI
             Debug.Log($"[GameData]: Rollback Saldo Dompet ke Awal Hari: ${walletBalance}");
         }
 

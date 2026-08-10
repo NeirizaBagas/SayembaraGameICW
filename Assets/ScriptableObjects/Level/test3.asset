@@ -12,10 +12,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 24a680c974cf84947a0c012502fd9be7, type: 3}
   m_Name: test3
   m_EditorClassIdentifier: Assembly-CSharp::ArusMerah.Data.LevelDataSO
-  levelNumber: 0
+  levelNumber: 3
   targetRevenue: 50
   timeLimit: 60
   seaWaterColor: {r: 0, g: 1, b: 1, a: 1}
+  introCutSceneData: {fileID: 0}
+  postShopCutSceneData: {fileID: 0}
   isForcedFailureLevel: 0
   randomSpawnItems:
   - itemTypeSO: {fileID: 11400000, guid: 34a98f16c63c388458954ab181b9c6cb, type: 2}

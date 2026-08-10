@@ -7,11 +7,12 @@ namespace ArusMerah.Managers
 {
     public enum GameFlowState
     {
+        MainMenuState,
         GameplayState,
         ResultState,
         ShopState,
         CutsceneState,
-        EndingChoice,
+        EndingChoiceState,
     }
 
     public class FlowManager : MonoBehaviour
@@ -24,11 +25,13 @@ namespace ArusMerah.Managers
 
         [Header("Status Flow Game Saat Ini")]
         [SerializeField] private GameFlowState currentFlowState;
+        public GameFlowState CurrentFlowState => currentFlowState; // Getter untuk status flow game saat ini
 
         // Actions Event
         public static Action<GameFlowState> OnFlowStateChanged;
         public static Action<LevelDataSO> OnLevelDataLoaded;
-        public static Action<bool> OnGameplayState;
+        public static Action OnLevelInitiated;
+        public static Action OnRestartGame;
 
         public LevelDataSO CurrentLevelData => (currentLevelIndex < listOfAllLevelDataSO.Count) ? listOfAllLevelDataSO[currentLevelIndex] : null; // Getter untuk level data saat ini
 
@@ -36,6 +39,22 @@ namespace ArusMerah.Managers
         {
             if (instance != null & instance != this) Destroy(gameObject);
             else instance = this;
+        }
+
+        private void OnEnable()
+        {
+            ResultUIController.OnRetryGame += RetryCurrentLevel;
+            ResultUIController.OnOpenShop += ProceedFromResultToShop;
+            ShopUIController.OnNextDayShopButtonClicked += ProceedToNextLevelFromShop;
+            LevelManager.OnStateToChange += ChangeFlowState;
+        }
+
+        private void OnDisable()
+        {
+            ResultUIController.OnRetryGame -= RetryCurrentLevel;
+            ResultUIController.OnOpenShop -= ProceedFromResultToShop;
+            ShopUIController.OnNextDayShopButtonClicked -= ProceedToNextLevelFromShop;
+            LevelManager.OnStateToChange -= ChangeFlowState;
         }
 
         private void Start()
@@ -56,12 +75,7 @@ namespace ArusMerah.Managers
                 currentLevelIndex = levelIndex;
                 LevelDataSO selectedLevelData = listOfAllLevelDataSO[currentLevelIndex];
                 // 1. Catat snapshot uang di dompet saat awal hari dimulai (untuk fitur rollback jika kalah)
-                if (GameData.Instance != null)
-                {
-                    GameData.Instance.RecordStartOfDaySnapshot();
-                }
-                // 2. Broadcast data level aktif
-                OnLevelDataLoaded?.Invoke(selectedLevelData);
+                OnLevelInitiated?.Invoke();
                 // 3. Cek apakah level ini punya Intro Cutscene Koran
                 if (selectedLevelData.introCutSceneData != null)
                 {
@@ -84,28 +98,24 @@ namespace ArusMerah.Managers
             OnFlowStateChanged?.Invoke(newFlowState);
             switch (newFlowState)
             {
+                case GameFlowState.MainMenuState:
+                    // UIManager akan memunculkan Canvas Main Menu
+                    break;
                 case GameFlowState.CutsceneState:
-                    OnGameplayState?.Invoke(false); // Broadcast bahwa gameplay berhenti
                     // UIManager akan memunculkan Canvas Koran
                     break;
                 case GameFlowState.GameplayState:
                     StartGameplayState();
-                    OnGameplayState?.Invoke(true); // Broadcast bahwa gameplay dimulai
                     break;
                 case GameFlowState.ResultState:
-                    OnGameplayState?.Invoke(false); // Broadcast bahwa gameplay berhenti
-                    // Evaluasi Quota di Panel Result (LevelManager / UIManager)
                     break;
                 case GameFlowState.ShopState:
-                    OnGameplayState?.Invoke(false); // Broadcast bahwa gameplay berhenti
-                    // UIManager akan memunculkan Canvas Shop
+                    ProceedFromResultToShop();
                     break;
                 //case GameFlowState.InterludeCutscene:
-                //    OnGameplayState?.Invoke(false); // Broadcast bahwa gameplay berhenti
                 //    // UIManager akan memunculkan Cutscene Selebaran (Lvl 8) / Ajakan Demo (Lvl 9)
                 //    break;
-                case GameFlowState.EndingChoice:
-                    OnGameplayState?.Invoke(false); // Broadcast bahwa gameplay berhenti
+                case GameFlowState.EndingChoiceState:
                     // UIManager akan memunculkan Layar Pilihan Dual Ending
                     break;
             }
@@ -115,28 +125,13 @@ namespace ArusMerah.Managers
         {
             if (CurrentLevelData == null) return;
 
-            if (LevelManager.Instance != null)
-            {
-                LevelManager.Instance.InitLevelData(CurrentLevelData);
-            }
-
-            // 1. Spawn objek di laut via LevelSpawner
-            if (LevelSpawner.Instance != null)
-            {
-                LevelSpawner.Instance.SpawnObjectsForLevel(CurrentLevelData); // Memanggil LevelSpawner untuk spawn objek sesuai data level
-            }
-            // 2. Inisialisasi timer & target di LevelManager
-            
-            // 3. Tutup Shop & buka Gameplay HUD di UIManager
-            if (UIManager.Instance != null)
-            {
-                UIManager.Instance.CloseShop();
-            }
+            OnLevelDataLoaded?.Invoke(CurrentLevelData);
         }
 
         // Dipanggil dari UI Panel Result saat Uang Kotor >= Quota Target (Tombol 'Lanjut ke Shop')
         public void ProceedFromResultToShop()
         {
+            if (currentFlowState == GameFlowState.ShopState) return; // Jika sudah di Shop, tidak perlu ganti state lagi
             ChangeFlowState(GameFlowState.ShopState);
         }
 
@@ -163,13 +158,23 @@ namespace ArusMerah.Managers
         // Dipanggil jika pemain menekan 'Ulangi Hari Ini (Retry)' di Panel Result/Game Over
         public void RetryCurrentLevel()
         {
+            Debug.Log("[FlowManager]: Menerima Event Retry! Mengubah State ke GameplayState...");
             // Rollback uang ke snapshot awal hari
-            if (GameData.Instance != null)
+            OnRestartGame?.Invoke();
+            OnLevelInitiated?.Invoke();
+            // 2. MUAT ULANG TIMER & SPAWN IKAN DI LAUT!
+            if (CurrentLevelData != null)
             {
-                GameData.Instance.RollbackMoneyToStartOfDay();
+                // Panggil event agar LevelManager mereset timer ke 60s
+                OnLevelDataLoaded?.Invoke(CurrentLevelData);
+                // Spawn ulang ikan & sampah di laut
+                if (LevelSpawner.Instance != null)
+                {
+                    LevelSpawner.Instance.SpawnObjectsForLevel(CurrentLevelData);
+                }
             }
-            // Load ulang level yang sama
-            LoadLevelByIndex(currentLevelIndex);
+            // 3. BARU UBAH STATE KE GAMEPLAY
+            ChangeFlowState(GameFlowState.GameplayState);
         }
     }
 }

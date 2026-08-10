@@ -1,10 +1,12 @@
-using ArusMerah.Gameplay;
 using ArusMerah.Data;
+using ArusMerah.Gameplay;
 using ArusMerah.Interface;
-using System;
-using UnityEngine;
-using UnityEngine.InputSystem;
 using ArusMerah.Managers;
+using System;
+using System.Collections;
+using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.InputSystem;
 
 public class HookMainSystem : MonoBehaviour
 {
@@ -17,6 +19,7 @@ public class HookMainSystem : MonoBehaviour
     [SerializeField] private float retrackSpeed = 5f; // Kecepatan menarik ke atas
     [SerializeField] private float maxLaunchDistance = 10f; // Batas jarak maksimum meluncur
     [SerializeField] private float maxHookDurability = 100f; // Durabilitas maksimum kail
+    [SerializeField] private float hookDelay = 3f; // Waktu cooldown sebelum kail bisa digunakan lagi
 
     // Hook variables
     // Variabel Status Internal (Private)
@@ -27,7 +30,7 @@ public class HookMainSystem : MonoBehaviour
     // State variables
     private bool isLaunching = false;
     private bool isRetracting = false;
-    private bool isActive; // Untuk mengontrol apakah hook bisa digunakan atau tidak (misal saat game over
+    private bool canHook; // Untuk mengontrol apakah hook bisa digunakan atau tidak (misal saat game over
 
     private Transform caughtItemTransform = null;
     private IHookAble caughtItemObject = null;
@@ -47,7 +50,6 @@ public class HookMainSystem : MonoBehaviour
     private void Awake()
     {
         inputSystem = new InputSystem();
-        isActive = true; // Pastikan hook aktif saat game dimulai
         ropeLineRenderer = hookGameObject.GetComponent<LineRenderer>();
     }
 
@@ -67,21 +69,26 @@ public class HookMainSystem : MonoBehaviour
     {
         inputSystem.Player.Enable();
         inputSystem.Player.Attack.started += FireHook;
-        FlowManager.OnGameplayState += toggleHook;
+        FlowManager.OnFlowStateChanged += toggleHook;
+
+        if (FlowManager.instance != null && FlowManager.instance.CurrentFlowState == GameFlowState.GameplayState)
+        {
+            toggleHook(GameFlowState.GameplayState);
+        }
     }
 
     private void OnDisable()
     {
         inputSystem?.Player.Disable();
         inputSystem.Player.Attack.started -= FireHook;
-        FlowManager.OnGameplayState -= toggleHook;
+        FlowManager.OnFlowStateChanged -= toggleHook;
     }
 
     // Update is called once per frame
     void Update()
     {
         //Logika Meluncur ke Bawah
-        if (isActive)
+        if (canHook)
         {
             if (isLaunching)
             {
@@ -95,19 +102,42 @@ public class HookMainSystem : MonoBehaviour
         UpdateRopeVisual();
     }
 
-    private void toggleHook(bool state)
+    private void toggleHook(GameFlowState gameState)
     {
-        isActive = state;
-
-        if (isActive)
+        if (gameState == GameFlowState.GameplayState)
         {
-            ropeLineRenderer.enabled = true;
+            // 1. KUNCI BEBAS CRASH: Aktifkan GameObject Player terlebih dahulu jika masih mati!
+            if (!gameObject.activeSelf)
+            {
+                gameObject.SetActive(true);
+            }
+
+            if (ropeLineRenderer != null) ropeLineRenderer.enabled = true;
+
+            // 2. Jalankan Coroutine HANYA JIKA GameObject sudah terbukti aktif di Hierarchy
+            if (gameObject.activeInHierarchy)
+            {
+                StartCoroutine(RoutineStartCooldown());
+            }
+            else
+            {
+                canHook = true; // Fallback jika tidak bisa coroutine
+            }
+
         }
-        else ropeLineRenderer.enabled = false;
+        else if (ropeLineRenderer != null) ropeLineRenderer.enabled = false;
+    }
+
+    IEnumerator RoutineStartCooldown()
+    {
+        canHook = false; // Kunci kail sementara
+        yield return new WaitForSeconds(hookDelay); // Tunggu 0.8 detik
+        canHook = true; // Buka kunci kail, pemain siap melaut!
     }
 
     private void FireHook(InputAction.CallbackContext context)
     {
+
         if (!isLaunching && !isRetracting)
         {
             isLaunching = true;
@@ -167,23 +197,17 @@ public class HookMainSystem : MonoBehaviour
             currentHookDurability -= totalDurabilityDamage;
             currentHookDurability = Math.Max(0, currentHookDurability);
 
-            // Simpan juga pengurangan ini ke simpanan global GameData
-            if (GameData.Instance != null) GameData.Instance.ApplyDurabilityDamage(totalDurabilityDamage);
-
             // 2. Jual item & tambah uang
             caughtItemObject.SellObject();
 
             // 3. Trigger Events
-            OnHookDurabilityChanged?.Invoke(currentHookDurability / maxHookDurability); // Panggil event untuk memperbarui UI durabilitas
+            OnHookDurabilityChanged?.Invoke(currentHookDurability / maxHookDurability); // Panggil event untuk memperbarui UI durabilitas & Simpan juga pengurangan ini ke simpanan global GameData
             OnFishSell?.Invoke(); // Panggil event setelah menjual ikan
             OnItemClearedFromSea?.Invoke(); // Trigger event untuk memberitahu LevelSpawner bahwa item telah dihapus dari laut
 
 
             caughtItemTransform = null; // Reset caughtItemTransform setelah diproses
             caughtItemObject = null;
-
-            Debug.Log("Tes");
-            // Sistem skor atau harga dari hasil tangkapan
         }
         ResetStat();
     }
@@ -231,6 +255,6 @@ public class HookMainSystem : MonoBehaviour
 
     private void HandleLevelEnded(bool isGameCompleted)
     {
-        isActive = false; // Nonaktifkan hook saat level selesai
+        canHook = false; // Nonaktifkan hook saat level selesai
     }
 }

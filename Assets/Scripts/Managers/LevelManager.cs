@@ -9,22 +9,27 @@ public class LevelManager : MonoBehaviour
     public static LevelManager Instance { get; private set; } // Singleton agar mudah dipanggil
 
     [Header("Level Settings")]
-    public int revenueToAchieve; // Target uang yang harus dikumpulkan untuk menang
+    public bool isQuoataPassed = false; // Status apakah quota tercapai atau tidak
     private int targetMoney = 100;
+    public int _targetMoney => targetMoney;
     private int _timeLimit = 60;
     private bool isForcedFailureLevel = false; // Flag khusus Level 10
 
     private float currentTime;
     private bool isGameActive = true;
     private int lastDisplayedTime = -1; // Untuk mengecek perubahan detik
+    private int _grossEarnings = 0; // Total uang kotor yang dikumpulkan selama level
 
     private int totalSpawnedItems = 0;
     private int totalCollectedItems = 0;
 
     // Events untuk UI & Gameplay
     public static Action<int> timeUpdate;
-    //public static Action OnLevelComplete;
+    public static Action<int> OnUpdateTarget;
+    public static Action OnGameCompleted;
     public static Action<bool> OnTargetPassed;
+    public static Action<int> OnTargetAchieved;
+    public static Action<GameFlowState> OnStateToChange;
 
     private void Awake()
     {
@@ -40,16 +45,18 @@ public class LevelManager : MonoBehaviour
 
     private void OnEnable()
     {
-        LevelSpawner.OnItemSpawned += HandleItemsSpawn;
         HookMainSystem.OnItemClearedFromSea += HandleItemCollected;
         FlowManager.OnFlowStateChanged += HandleFlowStateChanged;
+        FlowManager.OnLevelDataLoaded += InitLevelData; // Subscribe ke event untuk menerima data level
+        GameData.OnUpdatedGrossEarnings += HandleGrossEarning; // Subscribe ke event untuk menerima data gross earnings
     }
 
     private void OnDisable()
     {
-        LevelSpawner.OnItemSpawned -= HandleItemsSpawn;
         HookMainSystem.OnItemClearedFromSea -= HandleItemCollected;
         FlowManager.OnFlowStateChanged -= HandleFlowStateChanged;
+        FlowManager.OnLevelDataLoaded -= InitLevelData; // Unsubscribe dari event
+        GameData.OnUpdatedGrossEarnings -= HandleGrossEarning; // Unsubscribe dari event
     }
 
     private void Start()
@@ -62,13 +69,15 @@ public class LevelManager : MonoBehaviour
     {
         if (levelData == null) return;
         targetMoney = Mathf.RoundToInt(levelData.targetRevenue);
-        revenueToAchieve = targetMoney;
         _timeLimit = levelData.timeLimit;
         isForcedFailureLevel = levelData.isForcedFailureLevel;
+
+        OnUpdateTarget?.Invoke(targetMoney); // Update UI target
 
         currentTime = _timeLimit;
         lastDisplayedTime = -1;
         totalCollectedItems = 0;
+        _grossEarnings = 0;
         isGameActive = true;
         Debug.Log($"[LevelManager]: Data Level {levelData.levelNumber} Diterima! Target Quota: ${targetMoney}, Waktu: {_timeLimit}s");
     }
@@ -77,7 +86,10 @@ public class LevelManager : MonoBehaviour
     {
         if (newFlowState == GameFlowState.GameplayState)
         {
-            isGameActive = true;
+            if (currentTime > 0)
+            {
+                isGameActive = true;
+            }
         }
         else
         {
@@ -110,13 +122,16 @@ public class LevelManager : MonoBehaviour
 
     
 
-    private void HandleItemsSpawn(int totalSpawnedCount)
+    public void HandleItemsSpawn(int totalSpawnedCount)
     {
         totalSpawnedItems = totalSpawnedCount;
         totalCollectedItems = 0; // Reset collected items saat level dimulai
     }
 
-
+    private void HandleGrossEarning(int amount)
+    {
+        _grossEarnings = amount;
+    }
 
     private void HandleItemCollected()
     {
@@ -134,43 +149,28 @@ public class LevelManager : MonoBehaviour
     {
         if (!isGameActive) return; // Cegah evaluasi ganda
         isGameActive = false;
-
-        int grossEarnings = (GameData.Instance != null) ? GameData.Instance.grossEarningsToday : 0; // Ambil total uang yang dikumpulkan
-        bool isQuoataPassed = grossEarnings >= targetMoney;
-
+        isQuoataPassed = _grossEarnings >= targetMoney;
+        Debug.Log(isQuoataPassed);
         if (isForcedFailureLevel)
         {
-            //OnLevelComplete();
             OnTargetPassed?.Invoke(false);
-            if (FlowManager.instance != null)
-            {
-                FlowManager.instance.ChangeFlowState(GameFlowState.EndingChoice);
-            }
+            OnStateToChange?.Invoke(GameFlowState.EndingChoiceState);
             return;
         }
 
         if (isQuoataPassed)
         {
             // Potong Quota & Simpan Keuntungan Bersih ke Wallet
-            if (GameData.Instance != null)
-            {
-                GameData.Instance.ApplyQuotaDeductionAndSaveProfit(targetMoney);
-            }
+            OnTargetAchieved?.Invoke(targetMoney);
             OnTargetPassed?.Invoke(true);
             // Beralih ke Panel Result via FlowManager
-            if (FlowManager.instance != null)
-            {
-                FlowManager.instance.ChangeFlowState(GameFlowState.ResultState);
-            }
+            OnStateToChange?.Invoke(GameFlowState.ResultState);
         }
         else
         {
             // Quota Gagal: Jangan potong, persiapkan opsi Retry
             OnTargetPassed?.Invoke(false);
-            if (FlowManager.instance != null)
-            {
-                FlowManager.instance.ChangeFlowState(GameFlowState.ResultState);
-            }
+            OnStateToChange?.Invoke(GameFlowState.ResultState);
         }
     }
 }

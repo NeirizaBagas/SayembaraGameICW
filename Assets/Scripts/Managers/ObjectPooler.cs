@@ -48,6 +48,9 @@ namespace ArusMerah.Managers
                 // Setup sistem FIFO untuk setiap pool, sehingga objek yang paling lama tidak aktif akan diambil pertama kali
                 Queue<GameObject> objectsInstanceQueue = new Queue<GameObject>();
 
+                //if (FlowManager.instance != null && FlowManager.i)
+                /*int prewarmCount =*/  // Pastikan jumlah prewarm tidak negatif
+
                 for (int i = 0; i < poolConfig.numberOfItemsToPrewarm; i++)
                 {
                     GameObject instantiatedObject = Instantiate(poolConfig.prefabPoolObject);
