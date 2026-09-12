@@ -11,7 +11,7 @@ using UnityEngine.InputSystem;
 public class HookMainSystem : MonoBehaviour
 {
     [Header("Referensi Objek")]
-    [SerializeField] private GameObject hookGameObject; // Objek Kail/Claw
+    [SerializeField] private Transform hookTransform; // Objek Kail/Claw
     [SerializeField] private Transform boatObjTransform; // Transform posisi Perahu
 
     [Header("Pengaturan Kecepatan & Jarak Kail")]
@@ -25,7 +25,7 @@ public class HookMainSystem : MonoBehaviour
     // Variabel Status Internal (Private)
     private float currentHookDurability = 100f;
     private Vector3 startPos;
-    private LineRenderer ropeLineRenderer;
+    private HookVisual hookVisual;
 
     // State variables
     private bool isLaunching = false;
@@ -50,13 +50,13 @@ public class HookMainSystem : MonoBehaviour
     private void Awake()
     {
         inputSystem = new InputSystem();
-        ropeLineRenderer = hookGameObject.GetComponent<LineRenderer>();
     }
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
-        startPos = hookGameObject.transform.position;
+        hookVisual = GetComponent<HookVisual>();
+        startPos = hookTransform.position;
         clawRotateSystem = GetComponent<ClawRotateSystem>();
 
         originalRetrackSpeed = retrackSpeed;
@@ -99,7 +99,6 @@ public class HookMainSystem : MonoBehaviour
                 RetractHook();
             }
         }
-        UpdateRopeVisual();
     }
 
     private void toggleHook(GameFlowState gameState)
@@ -112,7 +111,7 @@ public class HookMainSystem : MonoBehaviour
                 gameObject.SetActive(true);
             }
 
-            if (ropeLineRenderer != null) ropeLineRenderer.enabled = true;
+            hookVisual.ToggleRope(true);
 
             // 2. Jalankan Coroutine HANYA JIKA GameObject sudah terbukti aktif di Hierarchy
             if (gameObject.activeInHierarchy)
@@ -125,7 +124,7 @@ public class HookMainSystem : MonoBehaviour
             }
 
         }
-        else if (ropeLineRenderer != null) ropeLineRenderer.enabled = false;
+        else hookVisual.ToggleRope(false);
     }
 
     IEnumerator RoutineStartCooldown()
@@ -151,10 +150,10 @@ public class HookMainSystem : MonoBehaviour
 
     private void LaunchHook()
     {
-        hookGameObject.transform.Translate(Vector3.down * launchSpeed * Time.deltaTime);
+        hookTransform.Translate(Vector3.down * launchSpeed * Time.deltaTime);
         clawRotateSystem.canRotate = false;
         // Jika mencapai batas jarak, tarik kembali
-        if (Vector3.Distance(startPos, hookGameObject.transform.position) >= maxLaunchDistance)
+        if (Vector3.Distance(startPos, hookTransform.position) >= maxLaunchDistance)
         {
             isLaunching = false;
             isRetracting = true;
@@ -164,10 +163,10 @@ public class HookMainSystem : MonoBehaviour
     private void RetractHook()
     {
         // Menarik kail kembali ke posisi awal di perahu
-        hookGameObject.transform.position = Vector3.MoveTowards(hookGameObject.transform.position, startPos, retrackSpeed * Time.deltaTime);
+        hookTransform.position = Vector3.MoveTowards(hookTransform.position, startPos, retrackSpeed * Time.deltaTime);
 
         // Jika sudah sampai di kapal kembali
-        if (Vector3.Distance(hookGameObject.transform.position, startPos) < 0.1f)
+        if (Vector3.Distance(hookTransform.position, startPos) < 0.1f)
         {
             isRetracting = false;
             // Logika jual ikan panggil di sini jika ada caughtItemTransform
@@ -175,19 +174,9 @@ public class HookMainSystem : MonoBehaviour
         }
     }
 
-    private void UpdateRopeVisual()
-    {
-        if (ropeLineRenderer != null && boatObjTransform != null)
-        {
-            ropeLineRenderer.SetPosition(0, boatObjTransform.position);
-            ropeLineRenderer.SetPosition(1, hookGameObject.transform.position);
-        }
-
-    }
-
     private void ResetHookAndSellItem()
     {
-        hookGameObject.transform.position = startPos;
+        hookTransform.position = startPos;
         if (caughtItemObject != null)
         {
             // Total Kerusakan = (Berat Item dalam Kg) + (Kerusakan Korosi Kimia)
@@ -234,7 +223,7 @@ public class HookMainSystem : MonoBehaviour
                 if (collidedTakeableItem != null)
                 {
                     // Membuat item mengikuti objek claw/hook
-                    collidedTakeableItem.OnCaughtByClaw(hookGameObject.transform);
+                    collidedTakeableItem.OnCaughtByClaw(hookTransform);
                 }
 
                 isLaunching = false;
