@@ -26,21 +26,12 @@ namespace ArusMerah.Gameplay
         private void Awake()
         {
             itemCollider2D = GetComponent<BoxCollider2D>();
-            //itemRigidbody2D = GetComponent<Rigidbody2D>();
             itemSpriteRenderer = GetComponent<SpriteRenderer>();
-
-            InitializeVisualSprite();
         }
 
         public void SetupItemData(ItemTypeSO newItemTypeData)
         {
             itemTypeData = newItemTypeData;
-            InitializeVisualSprite();
-        }
-
-        public void InitializeVisualSprite()
-        {
-            if (itemTypeData != null && itemTypeData.itemVisualSprite != null) itemSpriteRenderer.sprite = itemTypeData.itemVisualSprite;
         }
 
         public void OnCaughtByClaw(Transform clawHookTransform)
@@ -63,7 +54,7 @@ namespace ArusMerah.Gameplay
                 // Tambahkan nilai jual item ke total uang di GameData
                 if (GameData.Instance != null)
                 {
-                    GameData.Instance.AddGrossEarnings((int)ItemTypeData.monetaryValue);
+                    GameData.Instance.AddGrossEarnings(ItemTypeData.monetaryValue);
                 }
 
                 // Tampilkan log monolog nelayan jika ini adalah barang bukti korupsi

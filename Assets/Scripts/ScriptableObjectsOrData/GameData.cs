@@ -76,8 +76,6 @@ namespace ArusMerah.Data
         {
             walletSnapshotAtStart = walletBalance;
             grossEarningsToday = 0;
-            OnUpdatedGrossEarnings?.Invoke(grossEarningsToday); // Trigger event untuk update UI
-            Debug.Log($"[GameData]: Snapshot Awal Hari Dicatat. Saldo Dompet: ${walletBalance}");
         }
 
         // Menambahkan ke uang kotor hari ini, BUKAN langsung ke dompet.
@@ -86,7 +84,6 @@ namespace ArusMerah.Data
         {
             grossEarningsToday += amountToAdd;
             OnUpdatedGrossEarnings?.Invoke(grossEarningsToday); // Trigger event untuk update UI
-            Debug.Log($"[GameData]: Uang bertambah ${amountToAdd}. Total Uang Sekarang: ${grossEarningsToday}");
         }
 
         public void HandleGrossRevenue()
@@ -99,8 +96,7 @@ namespace ArusMerah.Data
         public void ApplyQuotaDeductionAndSaveProfit(int targetRevenueQuota)
         {
             int netProfit = grossEarningsToday - targetRevenueQuota; // Hitung keuntungan bersih setelah dikurangi quota target harian
-            walletBalance += walletSnapshotAtStart + netProfit; // Tambahkan keuntungan bersih ke dompet
-            Debug.Log($"[GameData]: Quota ${targetRevenueQuota} dipotong. Profit Bersih: +${netProfit}. Saldo Dompet Baru: ${walletBalance}");
+            walletBalance = walletSnapshotAtStart + netProfit; // Tambahkan keuntungan bersih ke dompet
         }
 
         // Dipanggil oleh FlowManager saat pemain menekan tombol Retry (gagal quota).
@@ -110,7 +106,6 @@ namespace ArusMerah.Data
             walletBalance = walletSnapshotAtStart;
             grossEarningsToday = 0; // Reset uang kotor hari ini
             OnUpdatedGrossEarnings?.Invoke(grossEarningsToday); // Trigger event untuk update UI
-            Debug.Log($"[GameData]: Rollback Saldo Dompet ke Awal Hari: ${walletBalance}");
         }
 
         // Dipanggil oleh UpgradeManager saat pemain membeli upgrade di Shop.
@@ -120,10 +115,8 @@ namespace ArusMerah.Data
             if (walletBalance >= cost)
             {
                 walletBalance -= cost;
-                Debug.Log($"[GameData]: Belanja -${cost}. Sisa Dompet: ${walletBalance}");
                 return true;
             }
-            Debug.Log($"[GameData]: Uang tidak cukup! Butuh ${cost}, Saldo: ${walletBalance}");
             return false;
         }
 

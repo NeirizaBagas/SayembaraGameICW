@@ -13,7 +13,7 @@ GameObject:
   - component: {fileID: 5367506867190260225}
   - component: {fileID: 598925216329011023}
   m_Layer: 0
-  m_Name: Limbah
+  m_Name: Evidence
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -36,6 +36,7 @@ Transform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!212 &8496384110951649361
 SpriteRenderer:
+  serializedVersion: 2
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -81,6 +82,7 @@ SpriteRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 1
+  m_MaskInteraction: 0
   m_Sprite: {fileID: 7482667652216324306, guid: 311925a002f4447b3a28927169b83ea6, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
@@ -90,7 +92,6 @@ SpriteRenderer:
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
   m_WasSpriteAssigned: 1
-  m_MaskInteraction: 0
   m_SpriteSortPoint: 0
 --- !u!61 &5367506867190260225
 BoxCollider2D:
@@ -150,4 +151,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2d29127a54805df4789984b4ab69e2f1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ItemData
-  itemTypeData: {fileID: 11400000, guid: 3707b6c74d1bf9f4aa3608b10d68ff82, type: 2}
+  itemTypeData: {fileID: 11400000, guid: 9d12be0c2729b46459173dd86303453a, type: 2}

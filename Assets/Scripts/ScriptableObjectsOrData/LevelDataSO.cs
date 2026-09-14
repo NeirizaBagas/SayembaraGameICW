@@ -8,8 +8,7 @@ namespace ArusMerah.Data
     public struct RandomSpawnItem
     {
         public ItemTypeSO itemTypeSO; // Ref asset ItemTypeSO
-        public int minimumSpawnCount; // Jumlah spawn minimal
-        public int maximumSpawnCount; // Jumlah spawn maksimal
+        public int spawnCount;
         public float minimumSpawnDepthY; // Batas atas kedalaman (misal: -2.0)
         public float maximumSpawnDepthY; // Batas bawah kedalaman(misal: -8.0)
     }

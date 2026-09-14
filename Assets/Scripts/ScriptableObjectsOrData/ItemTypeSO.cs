@@ -17,10 +17,10 @@ namespace ArusMerah.Data
         [Header("Basic Item Information")]
         public string itemDisplayName; // Nama item di ui
         public ItemCategoryType categoryType; // Jenis item
-        public Sprite itemVisualSprite; // Sprite atau tampilan item
+        public GameObject itemPrefab;
 
         [Header("Gameplay Statistic")]
-        public float monetaryValue; // Harga jual item
+        public int monetaryValue; // Harga jual item
         public float itemWeightInKg; // Berat item dalam kilogram
         public float durabilityDamageToClaw; // Jumlah kerusakan yang diberikan ke pengait
 

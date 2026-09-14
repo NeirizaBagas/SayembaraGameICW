@@ -59,11 +59,6 @@ public class LevelManager : MonoBehaviour
         GameData.OnUpdatedGrossEarnings -= HandleGrossEarning; // Unsubscribe dari event
     }
 
-    private void Start()
-    {
-
-    }
-
     // Mengambil data langsung dari LevelDataSO yang dikirim oleh FlowManager
     public void InitLevelData(LevelDataSO levelData)
     {
@@ -79,7 +74,6 @@ public class LevelManager : MonoBehaviour
         totalCollectedItems = 0;
         _grossEarnings = 0;
         isGameActive = true;
-        Debug.Log($"[LevelManager]: Data Level {levelData.levelNumber} Diterima! Target Quota: ${targetMoney}, Waktu: {_timeLimit}s");
     }
 
     private void HandleFlowStateChanged(GameFlowState newFlowState)
@@ -119,9 +113,6 @@ public class LevelManager : MonoBehaviour
             EvaluateLevelEnd();
         }
     }
-
-    
-
     public void HandleItemsSpawn(int totalSpawnedCount)
     {
         totalSpawnedItems = totalSpawnedCount;
@@ -148,6 +139,7 @@ public class LevelManager : MonoBehaviour
     public void EvaluateLevelEnd()
     {
         if (!isGameActive) return; // Cegah evaluasi ganda
+        OnGameCompleted?.Invoke(); // Trigger event untuk memberi tahu bahwa level telah selesai
         isGameActive = false;
         isQuoataPassed = _grossEarnings >= targetMoney;
         Debug.Log(isQuoataPassed);

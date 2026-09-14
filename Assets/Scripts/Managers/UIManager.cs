@@ -25,8 +25,6 @@ public class UIManager : MonoBehaviour
     private bool isShopOpen = false;
     private int targetRevenue = 0;
     private int grossRevenue = 0;
-    private float elapsedTime = 0;
-    private float progress = 0;
     private Coroutine currentTransitionCoroutine;
 
 
@@ -41,7 +39,6 @@ public class UIManager : MonoBehaviour
         FlowManager.OnFlowStateChanged += HandleFlowStateChanged;
         LevelManager.OnUpdateTarget += HandlerTargetUpdated;
         GameData.OnUpdatedGrossEarnings += HandlerGrossRevenue;
-        FlowManager.OnLevelInitiated += CloseShop;
     }
 
     private void OnDisable()
@@ -49,7 +46,6 @@ public class UIManager : MonoBehaviour
         FlowManager.OnFlowStateChanged -= HandleFlowStateChanged;
         LevelManager.OnUpdateTarget -= HandlerTargetUpdated;
         GameData.OnUpdatedGrossEarnings -= HandlerGrossRevenue;
-        FlowManager.OnLevelInitiated -= CloseShop;
     }
 
     private void Start()
@@ -146,10 +142,11 @@ public class UIManager : MonoBehaviour
             canvasOut.blocksRaycasts = false;
         }
         // 2. PROSES CROSSFADE (0.4 Detik)
+        float elapsedTime = 0f;
         while (elapsedTime < fadeDuration)
         {
             elapsedTime += Time.deltaTime;
-            progress = elapsedTime / fadeDuration;
+            float progress = elapsedTime / fadeDuration;
             if (canvasOut != null) canvasOut.alpha = 1f - progress; // Fade Out
             canvasIn.alpha = progress;                             // Fade In
             yield return null;

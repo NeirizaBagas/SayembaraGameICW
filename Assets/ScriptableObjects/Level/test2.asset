@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: test2
   m_EditorClassIdentifier: Assembly-CSharp::ArusMerah.Data.LevelDataSO
   levelNumber: 2
-  targetRevenue: 50
+  targetRevenue: 30
   timeLimit: 60
   seaWaterColor: {r: 0, g: 1, b: 1, a: 1}
   introCutSceneData: {fileID: 0}
@@ -21,12 +21,10 @@ MonoBehaviour:
   isForcedFailureLevel: 0
   randomSpawnItems:
   - itemTypeSO: {fileID: 11400000, guid: 34a98f16c63c388458954ab181b9c6cb, type: 2}
-    minimumSpawnCount: 5
-    maximumSpawnCount: 5
+    spawnCount: 5
     minimumSpawnDepthY: 0
     maximumSpawnDepthY: -4
   - itemTypeSO: {fileID: 11400000, guid: 3707b6c74d1bf9f4aa3608b10d68ff82, type: 2}
-    minimumSpawnCount: 1
-    maximumSpawnCount: 2
+    spawnCount: 2
     minimumSpawnDepthY: -4.4
     maximumSpawnDepthY: -4.5

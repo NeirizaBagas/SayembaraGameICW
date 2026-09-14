@@ -6455,6 +6455,7 @@ GameObject:
   - component: {fileID: 1474964971}
   - component: {fileID: 1474964973}
   - component: {fileID: 1474964974}
+  - component: {fileID: 1474964975}
   m_Layer: 0
   m_Name: Player
   m_TagString: Untagged
@@ -6628,8 +6629,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c3ca891ff9350334186f276abc3ac98a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::HookMainSystem
-  hookGameObject: {fileID: 1149298545}
-  boatObjTransform: {fileID: 985584800}
+  hookTransform: {fileID: 1149298546}
   launchSpeed: 8
   retrackSpeed: 5
   maxLaunchDistance: 10
@@ -6662,6 +6662,21 @@ Rigidbody2D:
   m_SleepingMode: 1
   m_CollisionDetection: 0
   m_Constraints: 0
+--- !u!114 &1474964975
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1474964969}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0ba11d3357183c644b10d8df3098bad2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::HookVisual
+  ropeLineRenderer: {fileID: 1572383435}
+  hookTransform: {fileID: 1149298546}
+  boatTransform: {fileID: 985584800}
 --- !u!1 &1492509739
 GameObject:
   m_ObjectHideFlags: 0
@@ -8464,11 +8479,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b6c250117049a7943afc894965c6c4b6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ArusMerah.Managers.ObjectPooler
-  poolItemConfigsList:
-  - poolTagKey: Smallfish
-    prefabPoolObject: {fileID: 4344479095518292617, guid: bfad582060f1e1c49bde797444c53d59, type: 3}
-    numberOfItemsToPrewarm: 5
-    isExpandableIfExhausted: 0
 --- !u!1 &1836377867
 GameObject:
   m_ObjectHideFlags: 0

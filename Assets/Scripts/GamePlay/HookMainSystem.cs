@@ -12,7 +12,6 @@ public class HookMainSystem : MonoBehaviour
 {
     [Header("Referensi Objek")]
     [SerializeField] private Transform hookTransform; // Objek Kail/Claw
-    [SerializeField] private Transform boatObjTransform; // Transform posisi Perahu
 
     [Header("Pengaturan Kecepatan & Jarak Kail")]
     [SerializeField] private float launchSpeed = 8f; // Kecepatan meluncur ke bawah
@@ -22,12 +21,13 @@ public class HookMainSystem : MonoBehaviour
     [SerializeField] private float hookDelay = 3f; // Waktu cooldown sebelum kail bisa digunakan lagi
 
     // Hook variables
+    [Header("Hook Variables")]
     // Variabel Status Internal (Private)
     private float currentHookDurability = 100f;
     private Vector3 startPos;
-    private HookVisual hookVisual;
 
     // State variables
+    [Header("State Variables")]
     private bool isLaunching = false;
     private bool isRetracting = false;
     private bool canHook; // Untuk mengontrol apakah hook bisa digunakan atau tidak (misal saat game over
@@ -41,8 +41,10 @@ public class HookMainSystem : MonoBehaviour
     // Script reference
     private InputSystem inputSystem;
     private ClawRotateSystem clawRotateSystem;
+    private HookVisual hookVisual;
 
     // Action Event untuk Komunikasi ke UI / Manager Lain
+    [Header("Action Events")]
     public static Action OnFishSell;
     public static Action<float> OnHookDurabilityChanged;
     public static Action OnItemClearedFromSea; // Event untuk memberitahu LevelSpawner bahwa item telah dihapus dari laut
@@ -50,14 +52,23 @@ public class HookMainSystem : MonoBehaviour
     private void Awake()
     {
         inputSystem = new InputSystem();
+        hookVisual = GetComponent<HookVisual>();
+        clawRotateSystem = GetComponent<ClawRotateSystem>();
+        if (hookTransform != null)
+        {
+            startPos = hookTransform.position;
+        }
     }
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
-        hookVisual = GetComponent<HookVisual>();
-        startPos = hookTransform.position;
-        clawRotateSystem = GetComponent<ClawRotateSystem>();
+        if (hookVisual == null) hookVisual = GetComponent<HookVisual>();
+        if (clawRotateSystem == null) clawRotateSystem = GetComponent<ClawRotateSystem>();
+        if (startPos == Vector3.zero && hookTransform != null)
+        {
+            startPos = hookTransform.position;
+        }
 
         originalRetrackSpeed = retrackSpeed;
         originalMaxLaunchDistance = maxLaunchDistance;
@@ -70,6 +81,7 @@ public class HookMainSystem : MonoBehaviour
         inputSystem.Player.Enable();
         inputSystem.Player.Attack.started += FireHook;
         FlowManager.OnFlowStateChanged += toggleHook;
+        LevelManager.OnGameCompleted += ResetHookToDefaultPosition; // Reset kail saat level selesai
 
         if (FlowManager.instance != null && FlowManager.instance.CurrentFlowState == GameFlowState.GameplayState)
         {
@@ -82,6 +94,7 @@ public class HookMainSystem : MonoBehaviour
         inputSystem?.Player.Disable();
         inputSystem.Player.Attack.started -= FireHook;
         FlowManager.OnFlowStateChanged -= toggleHook;
+        LevelManager.OnGameCompleted -= ResetHookToDefaultPosition;
     }
 
     // Update is called once per frame
@@ -111,6 +124,7 @@ public class HookMainSystem : MonoBehaviour
                 gameObject.SetActive(true);
             }
 
+            // ResetHookToDefaultPosition();
             hookVisual.ToggleRope(true);
 
             // 2. Jalankan Coroutine HANYA JIKA GameObject sudah terbukti aktif di Hierarchy
@@ -124,7 +138,10 @@ public class HookMainSystem : MonoBehaviour
             }
 
         }
-        else hookVisual.ToggleRope(false);
+        else
+        {
+            ResetHookToDefaultPosition();
+        }
     }
 
     IEnumerator RoutineStartCooldown()
@@ -136,6 +153,7 @@ public class HookMainSystem : MonoBehaviour
 
     private void FireHook(InputAction.CallbackContext context)
     {
+        if (!canHook) return;
 
         if (!isLaunching && !isRetracting)
         {
@@ -242,8 +260,38 @@ public class HookMainSystem : MonoBehaviour
         }
     }
 
-    private void HandleLevelEnded(bool isGameCompleted)
+    public void ResetHookToDefaultPosition()
     {
-        canHook = false; // Nonaktifkan hook saat level selesai
+        StopAllCoroutines();
+        hookVisual.ToggleRope(false);
+        canHook = false;
+        isLaunching = false;
+        isRetracting = false;
+
+        if (caughtItemObject != null)
+        {
+            caughtItemObject.DestroyObject();
+            caughtItemObject = null;
+            caughtItemTransform = null;
+        }
+        else if (caughtItemTransform != null)
+        {
+            if (ObjectPooler.Instance != null)
+            {
+                ObjectPooler.Instance.ReturnToPool(caughtItemTransform.gameObject);
+            }
+            else
+            {
+                Destroy(caughtItemTransform.gameObject);
+            }
+            caughtItemTransform = null;
+        }
+
+        if (hookTransform != null)
+        {
+            hookTransform.position = startPos;
+        }
+
+        ResetStat();
     }
 }

@@ -16,56 +16,35 @@ namespace ArusMerah.Managers
         private int currentGrossRevenue = 0;
         private void OnEnable()
         {
-            FlowManager.OnFlowStateChanged += HandleFlowStateChanged;
-            FlowManager.OnLevelDataLoaded += HandleLevelName;
-            HookMainSystem.OnFishSell += UpdateGameplayUI;
+            FlowManager.OnLevelInitiated += UpdateGameplayUI; // Update UI saat level dimulai
+            HookMainSystem.OnFishSell += UpdateMoneyUI;
             LevelManager.OnUpdateTarget += HandleTargetUpdated;
             GameData.OnUpdatedGrossEarnings += HandleGrossRevenueUpdated;
             LevelManager.timeUpdate += UpdateTimeLimit;
             HookMainSystem.OnHookDurabilityChanged += UpdateDurabilityUI;
-            
-
-            if (FlowManager.instance != null && FlowManager.instance.CurrentFlowState == GameFlowState.GameplayState)
-            {
-                UpdateGameplayUI();
-            }
         }
         private void OnDisable()
         {
-            FlowManager.OnFlowStateChanged -= HandleFlowStateChanged;
-            FlowManager.OnLevelDataLoaded -= HandleLevelName;
-            HookMainSystem.OnFishSell -= UpdateGameplayUI;
+            FlowManager.OnLevelInitiated -= UpdateGameplayUI; // Unsubscribe dari event saat level dimulai
+            HookMainSystem.OnFishSell -= UpdateMoneyUI;
             LevelManager.OnUpdateTarget -= HandleTargetUpdated;
             GameData.OnUpdatedGrossEarnings -= HandleGrossRevenueUpdated;
             LevelManager.timeUpdate -= UpdateTimeLimit;
             HookMainSystem.OnHookDurabilityChanged -= UpdateDurabilityUI;
         }
 
-        private void HandleFlowStateChanged(GameFlowState newFlowState)
-        {
-            if (newFlowState == GameFlowState.GameplayState)
-            {
-                UpdateGameplayUI();
-            }
-        }
-
-        private void HandleLevelName(LevelDataSO levelData)
-        {
-            if (levelText != null && levelData != null)
-            {
-                levelText.text = $"Level: {levelData.levelNumber}";
-            }
-        }
-
         private void HandleTargetUpdated(int newTarget)
         {
             currentTargetRevenue = newTarget;
-            UpdateGameplayUI();
+            int walletBalance = (GameData.Instance != null) ? GameData.Instance.walletBalance : 0;
+            currentGrossRevenue = walletBalance;
+            UpdateMoneyUI();
         }
         private void HandleGrossRevenueUpdated(int grossEarnings)
         {
-            currentGrossRevenue = grossEarnings;
-            UpdateGameplayUI();
+            int walletBalance = (GameData.Instance != null) ? GameData.Instance.walletBalance : 0;
+            currentGrossRevenue = walletBalance + grossEarnings;
+            UpdateMoneyUI();
         }
         private void UpdateTimeLimit(int timeLeft)
         {
@@ -80,16 +59,29 @@ namespace ArusMerah.Managers
 
         private void UpdateGameplayUI()
         {
-            if (moneyText == null) return;
+            UpdateLevelUI();
+            UpdateMoneyUI();
+        }
 
+        /// <summary>
+        /// Memperbarui teks nomor level pada HUD berdasarkan data level saat ini.
+        /// </summary>
+        private void UpdateLevelUI()
+        {
             if (levelText != null && FlowManager.instance != null && FlowManager.instance.CurrentLevelData != null)
             {
                 levelText.text = $"Level: {FlowManager.instance.CurrentLevelData.levelNumber}";
             }
+        }
 
-            int walletBalance = (GameData.Instance != null) ? GameData.Instance.walletBalance : 0;
+        /// <summary>
+        /// Memperbarui teks uang yang tersedia beserta indikator warna pencapaian target pendapatan.
+        /// </summary>
+        private void UpdateMoneyUI()
+        {
+            if (moneyText == null) return;
 
-            int totalMoneyAvailable = walletBalance + currentGrossRevenue;
+            int totalMoneyAvailable = currentGrossRevenue;
 
             moneyText.text = $"${totalMoneyAvailable} / ${currentTargetRevenue}";
             if (currentTargetRevenue > 0 && totalMoneyAvailable >= currentTargetRevenue)

@@ -10,15 +10,15 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f0a5abd295ec2b348aafc0e821618c6e, type: 3}
-  m_Name: Limbah
+  m_Name: MutatedBigFish
   m_EditorClassIdentifier: Assembly-CSharp::ArusMerah.Data.ItemTypeSO
-  itemDisplayName: Biohazard
-  categoryType: 3
-  itemVisualSprite: {fileID: 0}
-  monetaryValue: 0
-  itemWeightInKg: 5
-  durabilityDamageToClaw: 15
+  itemDisplayName: Smallfish
+  categoryType: 2
+  itemPrefab: {fileID: 4344479095518292617, guid: 251852e0eecfc3f469bd85becc75f6f0, type: 3}
+  monetaryValue: 20
+  itemWeightInKg: 2
+  durabilityDamageToClaw: 0
   internalMonologueText: 
-  isSwimmingItem: 0
+  isSwimmingItem: 1
   swimSpeedInUnitsPerSecond: 2
-  horizontalPatrolDistanceInUnits: 3
+  horizontalPatrolDistanceInUnits: 5

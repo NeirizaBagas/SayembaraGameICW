@@ -1,28 +1,16 @@
-using UnityEngine;
 using System.Collections.Generic;
-using System.Collections;
+using UnityEngine;
+using ArusMerah.Data;
 
 namespace ArusMerah.Managers
 {
-    [System.Serializable]
-    public class PoolItemConfig
-    {
-        public string poolTagKey; // Nama identifikasi pool (misal: "FishSmall", "Trash")
-        public GameObject prefabPoolObject; // Prefab yang akan dipooling
-        public int numberOfItemsToPrewarm = 15; // Jumlah awal yang dibuat di awal game
-        public bool isExpandableIfExhausted = true; // Apakah boleh membuat item baru jika stok pool habis
-    }
-
     public class ObjectPooler : MonoBehaviour
     {
-        public static ObjectPooler Instance { get; private set;  }
+        public static ObjectPooler Instance { get; private set; }
 
-        [Header("Konfigurasi daftar pool")]
-        [SerializeField] private List<PoolItemConfig> poolItemConfigsList;
-
-        private Dictionary<string, Queue<GameObject>> poolDictionary; // Dictionary internal untuk menyimpan Queue (antrian) GameObject yang sedang tidak aktif
-
-        private Dictionary<GameObject, string> activeObjectTagMapping; // Dictionary pendukung untuk mencatat asal prefab tiap GameObject agar mudah dikembalikan
+        private Dictionary<ItemTypeSO, Queue<GameObject>> poolDictionary = new Dictionary<ItemTypeSO, Queue<GameObject>>();
+        private Dictionary<GameObject, ItemTypeSO> activeObjectMapping = new Dictionary<GameObject, ItemTypeSO>();
+        private Dictionary<ItemTypeSO, Transform> poolContainerMapping = new Dictionary<ItemTypeSO, Transform>();
 
         private void Awake()
         {
@@ -33,82 +21,113 @@ namespace ArusMerah.Managers
             }
 
             Instance = this;
-
-            InitializeObjectPools();
         }
 
-        private void InitializeObjectPools()
+        private void OnEnable()
         {
-            poolDictionary = new Dictionary<string, Queue<GameObject>>(); // Ngebuat dictionary baru untuk nyimpen pool diawal game
-            activeObjectTagMapping = new Dictionary<GameObject, string>(); // Ngebuat dictionary baru untuk nyimpen mapping tag tiap objek yang aktif
+            FlowManager.OnInitializePoolLevels += InitializePoolFromLevels;
+        }
 
-            // Melakukan iterasi atau looping untuk setiap konfigurasi pool yang sudah ditentukan di inspector
-            foreach (PoolItemConfig poolConfig in poolItemConfigsList)
+        private void OnDisable()
+        {
+            FlowManager.OnInitializePoolLevels -= InitializePoolFromLevels;
+        }
+
+        public void InitializePoolFromLevels(List<LevelDataSO> levelDataList)
+        {
+            if (levelDataList == null) return;
+
+            Dictionary<ItemTypeSO, int> maxItemCounts = new Dictionary<ItemTypeSO, int>();
+            foreach (LevelDataSO level in levelDataList)
             {
-                // Setup sistem FIFO untuk setiap pool, sehingga objek yang paling lama tidak aktif akan diambil pertama kali
-                Queue<GameObject> objectsInstanceQueue = new Queue<GameObject>();
+                if (level == null || level.randomSpawnItems == null) continue;
 
-                //if (FlowManager.instance != null && FlowManager.i)
-                /*int prewarmCount =*/  // Pastikan jumlah prewarm tidak negatif
-
-                for (int i = 0; i < poolConfig.numberOfItemsToPrewarm; i++)
+                foreach (RandomSpawnItem item in level.randomSpawnItems)
                 {
-                    GameObject instantiatedObject = Instantiate(poolConfig.prefabPoolObject);
-                    instantiatedObject.transform.SetParent(this.transform);
-                    instantiatedObject.SetActive(false);
+                    if (item.itemTypeSO == null || item.itemTypeSO.itemPrefab == null) continue;
 
-                    // Masukin objek yang sudah diinstansiasi ke dalam antrian pool/sistem FIFO
-                    objectsInstanceQueue.Enqueue(instantiatedObject);
+                    if (maxItemCounts.TryGetValue(item.itemTypeSO, out int currentMax))
+                    {
+                        if (item.spawnCount > currentMax) maxItemCounts[item.itemTypeSO] = item.spawnCount;
+                    }
+                    else
+                    {
+                        maxItemCounts[item.itemTypeSO] = item.spawnCount;
+                    }
+                }
+            }
+
+            foreach (KeyValuePair<ItemTypeSO, int> itemSpawnPair in maxItemCounts)
+            {
+                ItemTypeSO itemType = itemSpawnPair.Key;
+                int targetCount = itemSpawnPair.Value;
+
+                if (!poolContainerMapping.TryGetValue(itemType, out Transform container) || container == null)
+                {
+                    GameObject containerObj = new GameObject($"Pool_{itemType.name}");
+                    containerObj.transform.SetParent(transform);
+                    container = containerObj.transform;
+                    poolContainerMapping[itemType] = container;
                 }
 
-                // Sistem FIFO yang sudah diisi dengan objek-objek yang sudah diinstansiasi dimasukkan ke dalam dictionary poolDictionary dengan key poolTagKey
-                poolDictionary.Add(poolConfig.poolTagKey, objectsInstanceQueue);
+                if (!poolDictionary.TryGetValue(itemType, out Queue<GameObject> queue))
+                {
+                    queue = new Queue<GameObject>();
+                    poolDictionary[itemType] = queue;
+                }
+
+                int needed = targetCount - queue.Count;
+                for (int i = 0; i < needed; i++)
+                {
+                    GameObject instantiated = Instantiate(itemType.itemPrefab, container);
+                    instantiated.SetActive(false);
+                    queue.Enqueue(instantiated);
+                }
             }
         }
 
-        // Mengambil GameObject dari Pool berdasarkan poolTagKey
-        public GameObject SpawnFromPool(string poolTagKey, Vector3 spawnWorldPoint, Quaternion spawnWorldRotation)
+        public GameObject SpawnFromPool(ItemTypeSO itemTypeSO, Vector3 spawnWorldPoint, Quaternion spawnWorldRotation)
         {
-            if (!poolDictionary.ContainsKey(poolTagKey))
+            if (itemTypeSO == null)
             {
-                Debug.LogWarning($"[ObjectPooler]: dengan tag pool '{poolTagKey}' tidak ditemukan!");
+                Debug.LogError("[ObjectPooler] itemTypeSO is null.");
                 return null;
             }
 
-            Queue<GameObject> targetQueue = poolDictionary[poolTagKey];
-            GameObject objectToSpawn = null;
-
-            if (targetQueue.Count == 0) // Kalau objek yang mau di spawn habis
+            if (!poolContainerMapping.TryGetValue(itemTypeSO, out Transform container) || container == null)
             {
-                PoolItemConfig poolConfig = poolItemConfigsList.Find(config => config.poolTagKey == poolTagKey); // Mencari tag yang sesuai dari dictionary list config(Config yang sudah mati)
+                GameObject containerObj = new GameObject($"Pool_{itemTypeSO.name}");
+                containerObj.transform.SetParent(transform);
+                container = containerObj.transform;
+                poolContainerMapping[itemTypeSO] = container;
+            }
 
-                if (poolConfig != null && poolConfig.isExpandableIfExhausted) // Kalau confignya ada dan bisa ditambahkan jumlahnya
+            if (!poolDictionary.TryGetValue(itemTypeSO, out Queue<GameObject> targetQueue))
+            {
+                targetQueue = new Queue<GameObject>();
+                poolDictionary[itemTypeSO] = targetQueue;
+            }
+
+            GameObject objectToSpawn;
+            if (targetQueue.Count == 0)
+            {
+                if (itemTypeSO.itemPrefab == null)
                 {
-                    objectToSpawn = Instantiate(poolConfig.prefabPoolObject);
-                    objectToSpawn.transform.SetParent(this.transform);
-                }
-                else
-                {
-                    Debug.LogWarning($"[ObjectPooler]: Stok pool '{poolTagKey}' habis dan tidak expandable!");
+                    Debug.LogError($"[ObjectPooler] itemPrefab on {itemTypeSO.name} is null.");
                     return null;
                 }
+                objectToSpawn = Instantiate(itemTypeSO.itemPrefab, container);
             }
-            else // Kalau objek yang mau dispawn masih ada, maka cukup spawn yg paling depan
+            else
             {
                 objectToSpawn = targetQueue.Dequeue();
             }
 
-            // Atur posisi, rotasi, dan hidupkan objek kembali
             objectToSpawn.transform.position = spawnWorldPoint;
             objectToSpawn.transform.rotation = spawnWorldRotation;
             objectToSpawn.SetActive(true);
 
-            // Kalau objek yang mau dispawn belum ada di dictionary mapping, maka tambahkan ke dictionary mapping agar bisa dikembalikan ke pool yang sesuai nanti
-            if (!activeObjectTagMapping.ContainsKey(objectToSpawn))
-            {
-                activeObjectTagMapping.Add(objectToSpawn, poolTagKey);
-            }
-
+            activeObjectMapping[objectToSpawn] = itemTypeSO;
             return objectToSpawn;
         }
 
@@ -116,22 +135,30 @@ namespace ArusMerah.Managers
         {
             if (gameObjectToReturn == null) return;
 
-            gameObjectToReturn.SetActive(false); // Matiin visual objek yang sudah ditangkap
-            gameObjectToReturn.transform.SetParent(this.transform); // mengembalikan objek ke posisi object pooler
-
-            // Bagian pengecekan tag objek yang ingin dikembalikan ke pool
-            if (activeObjectTagMapping.TryGetValue(gameObjectToReturn, out string poolTagKey))
+            if (activeObjectMapping.TryGetValue(gameObjectToReturn, out ItemTypeSO itemType))
             {
-                // Mencari pool dengan key yang sesuai, kalau ada maka masukkan kembali ke antrian pool
-                if (poolDictionary.ContainsKey(poolTagKey))
+                activeObjectMapping.Remove(gameObjectToReturn);
+                gameObjectToReturn.SetActive(false);
+
+                Transform targetContainer = poolContainerMapping.TryGetValue(itemType, out Transform foundContainer) && foundContainer != null
+                    ? foundContainer
+                    : transform;
+                gameObjectToReturn.transform.SetParent(targetContainer);
+
+                if (poolDictionary.TryGetValue(itemType, out Queue<GameObject> queue))
                 {
-                    // Masukkan kembali objek ke dalam antrian pool
-                    poolDictionary[poolTagKey].Enqueue(gameObjectToReturn);
+                    queue.Enqueue(gameObjectToReturn);
+                }
+                else
+                {
+                    Queue<GameObject> newQueue = new Queue<GameObject>();
+                    newQueue.Enqueue(gameObjectToReturn);
+                    poolDictionary[itemType] = newQueue;
                 }
             }
             else
             {
-                Destroy(gameObjectToReturn); // Kalau keynya tidak terdaftar langsung hancurkan saja objeknya
+                Destroy(gameObjectToReturn);
             }
         }
     }
